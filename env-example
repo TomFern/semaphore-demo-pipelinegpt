@@ -1,0 +1,6 @@
+# Get them from your Pinecone account dashboard
+export PINECONE_API_KEY=YOUR_API_KEY
+export PINECONE_ENVIRONMENT=YOUR_PINECONE_DATACENTER
+
+# Get them from your OpenAI account
+export OPENAI_API_KEY=YOUR_API_KEY
