@@ -47,9 +47,9 @@ Demo project to build an enriched ChatGPT responses using embeddings.
     $ python index_docs.py /path/repository/semaphoreci/docs
 
     Extracting YAML from Markdown files in /Users/tom/r/docs
-    100%|█████████████████████████████████████████████████████████████████████████████████████████| 164/164 [00:00<00:00, 8206.95it/s]
+    100%|████████████████████████| 164/164 [00:00<00:00, 8206.95it/s]
     Creating embeddings and uploading vectors to database
-    100%|███████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:09<00:00,  2.27s/it]
+    100%|████████████████████████| 4/4 [00:09<00:00,  2.27s/it]
     Database contains 79 vectors.
     ```
 
