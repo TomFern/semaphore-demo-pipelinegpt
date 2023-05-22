@@ -58,7 +58,35 @@ Demo project to build an enriched ChatGPT responses using embeddings.
 ```bash
 $ source venv/bin/activate
 $ source .env
-$ python query.py "Create a continuous integration pipeline to build and upload a Docker image to Docker Hub"
-EXAMPLE ANSWER
+$ python query.py "Create a CI pipeline to build and upload a Docker image to Docker Hub"
+Found 22 contexts for your query
+Working on your query...
+
+Answer:
+
+version: v1.0
+name: Docker Build and Push
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu1804
+
+blocks:
+  - name: "Build and Push Docker Image"
+    task:
+      jobs:
+        - name: "Build and Push"
+          commands:
+            - checkout
+            - docker build -t <repository>/<image>:<tag> .
+            - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+            - docker push <repository>/<image>:<tag>
+      secrets:
+        - name: dockerhub
+promotions:
+  - name: Deploy to Kubernetes
+    pipeline_file: deploy-k8s.yml
+    auto_promote:
+      when: "result = 'passed'"
 ```
 
