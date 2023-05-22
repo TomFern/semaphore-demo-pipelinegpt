@@ -2,7 +2,6 @@ import openai
 import pinecone
 import pathlib
 import tiktoken
-import textwrap
 import sys
 import re
 import os
@@ -11,12 +10,12 @@ from math import floor
 
 # Pinecone settings
 index_name = 'semaphore'
-upsert_batch_size = 20
+upsert_batch_size = 20   # how many embeddings to insert at once in the db
 
 # OpenAI settings
-max_tokens_model = 8191
-embed_model = "text-embedding-ada-002"
-encoding_model = "cl100k_base"
+embed_model = "text-embedding-ada-002" # embedding model compatible with gpt3.5
+max_tokens_model = 8191                # max tokens accepted by embedding model
+encoding_model = "cl100k_base"         # tokenizer compatible with gpt3.5
 
 # https://platform.openai.com/docs/guides/embeddings/how-can-i-tell-how-many-tokens-a-string-has-before-i-embed-it
 def num_tokens_from_string(string: str) -> int:
@@ -24,6 +23,7 @@ def num_tokens_from_string(string: str) -> int:
     encoding = tiktoken.get_encoding(encoding_model)
     num_tokens = len(encoding.encode(string))
     return num_tokens
+
 
 def extract_yaml(text: str) -> str:
     """Returns list with all the YAML code blocks found in text."""
@@ -37,12 +37,12 @@ env = os.getenv("PINECONE_ENVIRONMENT")
 pinecone.init(api_key=api_key, enviroment=env)
 index = pinecone.Index(index_name)
 
-# read path to repo from CLI arguments
+# read path to repo argv
 repo_path = sys.argv[1]
 repo_path = os.path.abspath(repo_path)
 repo = pathlib.Path(repo_path)
 
-# Read YAMLs from Markdown data into memory
+# read Markdown text into memory
 markdown_files = list(repo.glob("**/*.md")) + list(
     repo.glob("**/*.mdx")
 )
@@ -53,32 +53,41 @@ for i in tqdm(range(0, len(markdown_files))):
     with open(markdown_file, "r") as f:
         relative_path = markdown_file.relative_to(repo_path)
         text = str(f.read())
-        if text != '':
-            yamls = extract_yaml(text)
-            j = 0
-            for y in yamls:
-                j = j+1
-                new_data.append({
-                    "source": str(relative_path),
-                    "text": y,
-                    "id": "github.com/semaphore/docs/"+str(relative_path)+'['+str(j)+']'
-                })
+        if text == '':
+            continue
+        yamls = extract_yaml(text)
+        j = 0
+        for y in yamls:
+            j = j+1
+            new_data.append({
+                "source": str(relative_path),
+                "text": y,
+                "id": "github.com/semaphore/docs/"+str(relative_path)+'['+str(j)+']'
+            })
+
 
 # Create embeddings and upsert the vectors to Pinecone
 print(f"Creating embeddings and uploading vectors to database")
 for i in tqdm(range(0, len(new_data), upsert_batch_size)):
+    
+    # process source text in batches
     i_end = min(len(new_data), i+upsert_batch_size)
     meta_batch = new_data[i:i_end]
     ids_batch = [x['id'] for x in meta_batch]
     texts = [x['text'] for x in meta_batch]
+
+    # compute embeddings using OpenAI API
     embedding = openai.Embedding.create(input=texts, engine=embed_model)
     embeds = [record['embedding'] for record in embedding['data']]
-    # clean metadatab before upserting
+
+    # clean metadata before upserting
     meta_batch = [{
         'id': x['id'],
         'text': x['text'],
         'source': x['source']
     } for x in meta_batch] 
+
+    # upsert vectors
     to_upsert = list(zip(ids_batch, embeds, meta_batch))
     index.upsert(vectors=to_upsert)
 
