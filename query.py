@@ -22,8 +22,10 @@ embed_model = "text-embedding-ada-002"         # embedding model compatible with
 encoding_model_messages = "gpt-3.5-turbo-0301" # tokenizer compatible with gpt3.5 chat sessions
 encoding_model_strings = "cl100k_base"         # tokenizer compatible embedding model       
 
-# Connect with Pinecone db
-pinecone.init(api_key=os.getenv("PINECONE_API_KEY"), enviroment=os.getenv("PINECONE_ENVIRONMENT"))
+# Connect with Pinecone db and index
+api_key = os.getenv("PINECONE_API_KEY")
+env = os.getenv("PINECONE_ENVIRONMENT")
+pinecone.init(api_key=api_key, environment=env)
 index = pinecone.Index(index_name)
 
 # https://platform.openai.com/docs/guides/embeddings/how-can-i-tell-how-many-tokens-a-string-has-before-i-embed-it
