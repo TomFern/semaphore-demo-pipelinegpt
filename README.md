@@ -1,4 +1,4 @@
-# semaphore-demo-pipelinegpt
+# PipelineGPT: Generate Semaphore Pipelines with OpenAI
 
 Demo project to build an enriched ChatGPT responses using embeddings.
 
