@@ -1,34 +1,30 @@
+# query.py
 
-# Asnwer a one-shot query with secondary context using embeddings
-
-import openai
-import pinecone
-import os
-import re
-import tiktoken
-import sys
-
-# Pinecone settings
+# Pinecone database name, number of matched to retrieve
+# cutoff similarity score, and how much tokens as context
 index_name = 'semaphore'
-context_cap_per_query = 30        # how many matches to retrieve from db
-match_min_score = 0.75            # matches below this relevacy score will be ignored
-context_tokens_per_query = 3000   # how many tokens to dedicate to context in prompts
+context_cap_per_query = 30
+match_min_score = 0.75
+context_tokens_per_query = 3000
 
-# OpenAI model parameters
-chat_engine_model = "gpt-3.5-turbo"     # LLM model for completion/question answering
-max_tokens_model = 4000                 # how many tokens the LLM model accepts
-temperature = 0.2                       # model randomness
-embed_model = "text-embedding-ada-002"         # embedding model compatible with gpt3.5
-encoding_model_messages = "gpt-3.5-turbo-0301" # tokenizer compatible with gpt3.5 chat sessions
-encoding_model_strings = "cl100k_base"         # tokenizer compatible embedding model       
+# OpenAI LLM model parameters
+chat_engine_model = "gpt-3.5-turbo"
+max_tokens_model = 4000
+temperature = 0.2 
+embed_model = "text-embedding-ada-002"
+encoding_model_messages = "gpt-3.5-turbo-0301"
+encoding_model_strings = "cl100k_base"
 
 # Connect with Pinecone db and index
+import pinecone
+import os
 api_key = os.getenv("PINECONE_API_KEY")
 env = os.getenv("PINECONE_ENVIRONMENT")
 pinecone.init(api_key=api_key, environment=env)
 index = pinecone.Index(index_name)
 
-# https://platform.openai.com/docs/guides/embeddings/how-can-i-tell-how-many-tokens-a-string-has-before-i-embed-it
+import tiktoken
+
 def num_tokens_from_string(string: str) -> int:
     """Returns the number of tokens in a text string."""
     encoding = tiktoken.get_encoding(encoding_model_strings)
@@ -36,7 +32,6 @@ def num_tokens_from_string(string: str) -> int:
     return num_tokens
 
 
-# https://platform.openai.com/docs/guides/chat/managing-tokens
 def num_tokens_from_messages(messages):
     """Returns the number of tokens used by a list of messages. Compatible with  model """
 
@@ -65,11 +60,11 @@ def get_prompt(query: str, context: str) -> str:
         f"\n\nTask: {query}\n\nYAML Code:"
     )
 
-
 def get_message(role: str, content: str) -> dict:
     """Generate a message for OpenAI API completion."""
     return {"role": role, "content": content}
 
+import openai
 
 def get_context(query: str, max_tokens: int) -> list:
     """Generate message for OpenAI model. Add context until hitting `context_token_limit` limit. Returns prompt string."""
@@ -97,7 +92,7 @@ def get_context(query: str, max_tokens: int) -> list:
         context = matches[i]['metadata']['text']
         token_count = num_tokens_from_string(usable_context + '\n---\n' + context)
 
-        if token_count < max_tokens:
+        if token_count < context_tokens_per_query:
             usable_context = usable_context + '\n---\n' + context 
             context_count = context_count + 1
 
@@ -116,19 +111,17 @@ def complete(messages):
     )
     return res.choices[0].message.content.strip()
 
-
-def extract_yaml(text: str) -> str:
-    """Returns list with all the YAML code blocks found in text."""
-    matches = [m.group(1) for m in re.finditer("```yaml([\w\W]*?)```", text)]
-    return matches
-
-messages = []
+import sys
 
 query = sys.argv[1]
-messages.append(get_message('system', 'You are a helpful assistant that writes YAML code for Semaphore continuous integration pipelines and explains them. Return YAML code inside code fences.'))
+
 context = get_context(query, context_tokens_per_query)
 prompt = get_prompt(query, context)
+
+# initialize messages list to send to OpenAI API
+messages = []
 messages.append(get_message('user', prompt))
+messages.append(get_message('system', 'You are a helpful assistant that writes YAML code for Semaphore continuous integration pipelines and explains them. Return YAML code inside code fences.'))
 
 if num_tokens_from_messages(messages) >= max_tokens_model:
     raise Exception('Model token size limit reached') 
@@ -139,4 +132,3 @@ print("Answer:\n")
 print(answer)
 messages.append(get_message('assistant', answer))
 
-# To build a chatbot, ask the next query, append them to messages and run complete.
